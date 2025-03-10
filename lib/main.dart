@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'dart:math';
+import 'package:womensafety/news_page.dart';
+import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 void main() {
   runApp(SOSApp());
@@ -56,7 +59,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         context,
         PageRouteBuilder(
           transitionDuration: Duration(milliseconds: 600),
-          pageBuilder: (_, __, ___) => LandingPage(),
+          pageBuilder: (_, __, ___) => BottomNavBar(), // Navigate to BottomNavBar
           transitionsBuilder: (_, anim, __, child) {
             return FadeTransition(opacity: anim, child: child);
           },
@@ -135,6 +138,91 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         ],
       ),
     );
+  }
+}
+
+Widget _buildTextField(TextEditingController controller, String label,
+    {bool obscureText = false}) {
+  return TextFormField(
+    controller: controller,
+    obscureText: obscureText,
+    decoration: InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: Colors.white),
+      filled: true,
+      fillColor: Colors.white24,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    validator: (value) => value!.isEmpty ? "$label is required" : null,
+  );
+}
+
+class BottomNavBar extends StatefulWidget {
+  @override
+  _BottomNavBarState createState() => _BottomNavBarState();
+}
+
+class _BottomNavBarState extends State<BottomNavBar> {
+  int _selectedIndex = 0;
+
+  final List<Widget> _pages = [
+    LandingPage(), // Use LandingPage as the first page
+    DashboardPage(),
+    OtherServicesPage(),
+    SettingsPage(),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.pink,
+        unselectedItemColor: Colors.grey,
+        onTap: _onItemTapped,
+        items: [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: "Dashboard"),
+          BottomNavigationBarItem(icon: Icon(Icons.miscellaneous_services), label: "Other Services"),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Settings"),
+        ],
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Text("Home Page"));
+  }
+}
+
+class DashboardPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Text("Dashboard Page"));
+  }
+}
+
+class OtherServicesPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Text("Other Services Page"));
+  }
+}
+
+class SettingsPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Text("Settings Page"));
   }
 }
 
@@ -227,33 +315,73 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildCustomButton("Feature 1"),
+                    _buildCustomButton("Feature 1", () {}),
                     SizedBox(width: 30),
-                    _buildCustomButton("Feature 2"),
+                    _buildCustomButton("Feature 2", () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => NewsPage()));
+                    }),
                   ],
                 ),
                 SizedBox(height: 40),
                 // SOS Button
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.withOpacity(0.9),
-                    padding: EdgeInsets.symmetric(horizontal: 80, vertical: 25),
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+
+                SizedBox(height: 10),
+                // SOS Button with Separated Emoji and Emergency Button
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.6),
+                        spreadRadius: 3,
+                        blurRadius: 10,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  onPressed: () => showSOSAlert(context),
-                  child: Text("🚨 SOS", style: TextStyle(fontSize: 24, color: Colors.white)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Glowing Circular Border for Emoji
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.red.withOpacity(0.9),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.red.withOpacity(0.6),
+                              spreadRadius: 3,
+                              blurRadius: 10,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          "🚨",
+                          style: TextStyle(fontSize: 24, color: Colors.white),
+                        ),
+                      ),
+                      SizedBox(width: 10), // White space between emoji and text
+                      // Emergency Button Text
+                      Text(
+                        "< Emergency Button ",
+                        style: TextStyle(fontSize: 20, color: Colors.white),
+                      ),
+                    ],
+                  ),
                 ),
+
                 SizedBox(height: 40),
                 // Bottom Buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildCustomButton("Feature 3"),
+                    _buildCustomButton("Feature 3", () {}),
                     SizedBox(width: 30),
-                    _buildCustomButton("Feature 4"),
+                    _buildCustomButton("Feature 4", () {}),
                   ],
                 ),
               ],
@@ -261,20 +389,44 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
           ),
         ],
       ),
+      // Add the Floating Action Button with Lights
+      floatingActionButton: Container(
+        width: 70,
+        height: 70,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.pinkAccent.withOpacity(0.4),
+              spreadRadius: 5,
+              blurRadius: 10,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          onPressed: () {
+            // Add your FAB action here
+          },
+          backgroundColor: Colors.pinkAccent,
+          child: Icon(Icons.add, size: 30, color: Colors.white),
+          elevation: 0,
+        ),
+      ),
     );
   }
 
-  Widget _buildCustomButton(String text) {
+  Widget _buildCustomButton(String text, VoidCallback onPressed) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: Color(0xFFD291BC).withOpacity(0.8), // Light pink + violet mix
+        backgroundColor: Color(0xFFD291BC).withOpacity(0.8),
         padding: EdgeInsets.symmetric(horizontal: 50, vertical: 20),
         elevation: 6,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(15),
         ),
       ),
-      onPressed: () {},
+      onPressed: onPressed,
       child: Text(text, style: TextStyle(fontSize: 20, color: Colors.white)),
     );
   }
