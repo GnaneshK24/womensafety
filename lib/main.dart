@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:womensafety/laws_page.dart';
+import 'package:womensafety/map.dart';
 import 'package:womensafety/news_page.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -236,7 +237,7 @@ class LandingPage extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildGridButton(Icons.map, "Map & Reviews", () {}),
+                    _buildGridButton(Icons.map, "Map & Reviews", () {Navigator.push(context, MaterialPageRoute(builder: (context) => MapScreen()));}),
                     SizedBox(width: 20),
                     _buildGridButton(Icons.shield, "Self-Defense", () {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => SelfDefenseVideos()));
