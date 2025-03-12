@@ -245,18 +245,7 @@ class LandingPage extends StatelessWidget {
                 ),
 
                 // SOS Emergency Button (Centered between rows)
-                SizedBox(height: 20),
-                FloatingActionButton.extended(
-                  onPressed: () => showSOSAlert(context),
-                  icon: Icon(Icons.warning, color: Colors.white),
-                  label: Text("SOS Emergency", style: TextStyle(fontSize: 18, color: Colors.white)),
-                  backgroundColor: Colors.red,
-                  elevation: 8,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                SizedBox(height: 20),
+  
 
                 // Second Row of Buttons
                 Row(
