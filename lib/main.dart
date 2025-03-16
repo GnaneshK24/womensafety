@@ -10,6 +10,8 @@ import 'otherservices.dart';
 import 'notification_page.dart';
 import 'contacts_page.dart';
 import 'self_defense_videos.dart';
+import 'settings_page.dart';
+
 
 void main() {
   runApp(SOSApp());
@@ -327,9 +329,3 @@ class LandingPage extends StatelessWidget {
   }
 }
 
-class SettingsPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Text("Settings Page"));
-  }
-}
