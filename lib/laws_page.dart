@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class LawsPage extends StatelessWidget {
   // Function to open the reference link
@@ -14,109 +15,98 @@ class LawsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Laws for Women Welfare & Safety'),
-        backgroundColor: Colors.pinkAccent,
+        title: Text(localizations.lawsTitle),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
       ),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LawCard(
-                title: "The Protection of Women from Domestic Violence Act, 2005",
-                description:
-                "This law provides protection to women from domestic violence and allows them to seek legal remedies, including protection orders, residence orders, and monetary relief.",
-              ),
-              LawCard(
-                title: "The Sexual Harassment of Women at Workplace (Prevention, Prohibition and Redressal) Act, 2013",
-                description:
-                "This law ensures women’s safety at workplaces by setting up an internal complaints committee for redressal of grievances.",
-              ),
-              LawCard(
-                title: "The Dowry Prohibition Act, 1961",
-                description:
-                "This law prohibits the giving or receiving of dowry and punishes those who demand or accept dowry before or after marriage.",
-              ),
-              LawCard(
-                title: "The Maternity Benefit Act, 1961 (Amended 2017)",
-                description:
-                "Provides paid maternity leave up to 26 weeks for women in workplaces and ensures job security during the maternity period.",
-              ),
-              LawCard(
-                title: "The Prohibition of Child Marriage Act, 2006",
-                description:
-                "Aims to prevent child marriages and protect the rights of young girls by setting the legal marriage age at 18 for women.",
-              ),
-              LawCard(
-                title: "The Indian Penal Code (IPC) Sections 354, 376, 509",
-                description:
-                "These sections deal with crimes against women such as assault with intent to outrage modesty, rape, and sexual harassment.",
-              ),
-              LawCard(
-                title: "The Medical Termination of Pregnancy (MTP) Act, 1971 (Amended 2021)",
-                description:
-                "Allows women to safely terminate pregnancies under certain legal conditions and extends abortion rights for unmarried women as well.",
-              ),
-              LawCard(
-                title: "The Hindu Succession Act, 1956 (Amended 2005)",
-                description:
-                "Gives equal inheritance rights to women in ancestral property, ensuring gender equality in property ownership.",
-              ),
-              LawCard(
-                title: "The Indecent Representation of Women (Prohibition) Act, 1986",
-                description:
-                "Prohibits indecent or derogatory representation of women in advertisements, publications, and online platforms.",
-              ),
-              SizedBox(height: 20),
-              Center(
-                child: ElevatedButton(
-                  onPressed: _launchURL,
-                  child: Text("Learn More"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pinkAccent,
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    textStyle: TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-            ],
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildLawCard(
+            context,
+            localizations.domesticViolenceAct,
+            localizations.domesticViolenceDesc,
           ),
-        ),
+          _buildLawCard(
+            context,
+            localizations.workplaceHarassmentAct,
+            localizations.workplaceHarassmentDesc,
+          ),
+          _buildLawCard(
+            context,
+            localizations.dowryAct,
+            localizations.dowryDesc,
+          ),
+          _buildLawCard(
+            context,
+            localizations.maternityAct,
+            localizations.maternityDesc,
+          ),
+          _buildLawCard(
+            context,
+            localizations.childMarriageAct,
+            localizations.childMarriageDesc,
+          ),
+          _buildLawCard(
+            context,
+            localizations.ipcSections,
+            localizations.ipcDesc,
+          ),
+          _buildLawCard(
+            context,
+            localizations.mtpAct,
+            localizations.mtpDesc,
+          ),
+          _buildLawCard(
+            context,
+            localizations.hinduSuccessionAct,
+            localizations.hinduSuccessionDesc,
+          ),
+          _buildLawCard(
+            context,
+            localizations.indecentRepresentationAct,
+            localizations.indecentRepresentationDesc,
+          ),
+        ],
       ),
     );
   }
-}
 
-class LawCard extends StatelessWidget {
-  final String title;
-  final String description;
-
-  LawCard({required this.title, required this.description});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildLawCard(BuildContext context, String title, String description) {
+    final localizations = AppLocalizations.of(context)!;
     return Card(
-      elevation: 4,
-      margin: EdgeInsets.symmetric(vertical: 10),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
-        padding: EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            SizedBox(height: 5),
+            const SizedBox(height: 8),
             Text(
               description,
-              style: TextStyle(fontSize: 14),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: _launchURL,
+                icon: const Icon(Icons.info_outline),
+                label: Text(localizations.learnMore),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  minimumSize: const Size(200, 48),
+                  textStyle: const TextStyle(fontSize: 16),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                ),
+              ),
             ),
           ],
         ),

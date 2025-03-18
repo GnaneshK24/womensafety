@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'theme_provider.dart';
+import 'language_provider.dart';
+import 'sos_settings_provider.dart';
+import 'font_size_provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'main.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -7,164 +14,148 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  Locale _selectedLocale = Locale('en'); // Default language
-  ThemeMode _themeMode = ThemeMode.system; // Default theme mode
   bool _notificationsEnabled = true;
   bool _soundEffectsEnabled = true;
-  double _fontSize = 16.0;
-
-  void _setLocale(Locale newLocale) {
-    if (Intl.verifiedLocale(newLocale.languageCode, (locale) => true, onFailure: (locale) => null) != null) {
-      setState(() {
-        _selectedLocale = newLocale;
-      });
-    }
-  }
-
-  void _setThemeMode(ThemeMode mode) {
-    setState(() {
-      _themeMode = mode;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: ThemeData.light(),
-      darkTheme: ThemeData.dark(),
-      themeMode: _themeMode,
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text("Settings"),
-        ),
-        body: SingleChildScrollView( // Fix for overflow issue
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Language Selection
-                Text("Language Selection", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                DropdownButton<Locale>(
-                  value: _selectedLocale,
-                  items: [
-                    DropdownMenuItem(child: Text("English"), value: Locale('en')),
-                    DropdownMenuItem(child: Text("தமிழ் (Tamil)"), value: Locale('ta')),
-                    DropdownMenuItem(child: Text("हिन्दी (Hindi)"), value: Locale('hi')),
-                  ],
-                  onChanged: (Locale? newLocale) {
-                    if (newLocale != null) {
-                      _setLocale(newLocale);
-                    }
-                  },
-                ),
-                SizedBox(height: 20),
+    final l10n = AppLocalizations.of(context)!;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final languageProvider = Provider.of<LanguageProvider>(context);
+    final sosSettings = Provider.of<SOSSettingsProvider>(context);
+    final fontSizeProvider = Provider.of<FontSizeProvider>(context);
 
-                // Theme Mode Selection
-                Text("App Theme", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ListTile(
-                  title: Text("Light"),
-                  leading: Radio(
-                    value: ThemeMode.light,
-                    groupValue: _themeMode,
-                    onChanged: (ThemeMode? mode) {
-                      if (mode != null) _setThemeMode(mode);
-                    },
-                  ),
-                ),
-                ListTile(
-                  title: Text("Dark"),
-                  leading: Radio(
-                    value: ThemeMode.dark,
-                    groupValue: _themeMode,
-                    onChanged: (ThemeMode? mode) {
-                      if (mode != null) _setThemeMode(mode);
-                    },
-                  ),
-                ),
-                ListTile(
-                  title: Text("System Default"),
-                  leading: Radio(
-                    value: ThemeMode.system,
-                    groupValue: _themeMode,
-                    onChanged: (ThemeMode? mode) {
-                      if (mode != null) _setThemeMode(mode);
-                    },
-                  ),
-                ),
-                SizedBox(height: 20),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.settings),
+      ),
+      body: ListView(
+        padding: EdgeInsets.all(16),
+        children: [
+          // Theme Settings
+          SwitchListTile(
+            title: Text(l10n.darkMode),
+            subtitle: Text(l10n.toggleTheme),
+            value: themeProvider.themeMode == ThemeMode.dark,
+            onChanged: (bool value) {
+              themeProvider.toggleTheme();
+            },
+          ),
 
-                // Notifications Toggle
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("Enable Notifications", style: TextStyle(fontSize: 18)),
-                    Switch(
-                      value: _notificationsEnabled,
-                      onChanged: (bool value) {
-                        setState(() {
-                          _notificationsEnabled = value;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                SizedBox(height: 20),
-
-                // Sound Effects Toggle
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("Enable Sound Effects", style: TextStyle(fontSize: 18)),
-                    Switch(
-                      value: _soundEffectsEnabled,
-                      onChanged: (bool value) {
-                        setState(() {
-                          _soundEffectsEnabled = value;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                SizedBox(height: 20),
-
-                // Font Size Adjustment
-                Text("Font Size", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Slider(
-                  value: _fontSize,
-                  min: 12,
-                  max: 24,
-                  divisions: 6,
-                  label: "${_fontSize.toInt()}",
-                  onChanged: (double value) {
-                    setState(() {
-                      _fontSize = value;
-                    });
-                  },
-                ),
-                SizedBox(height: 20),
-
-                // Privacy Settings Navigation
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => PrivacySettingsPage()));
-                  },
-                  child: Text("Privacy Settings"),
-                ),
-
-                SizedBox(height: 20),
-
-                // About Page Navigation
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => AboutPage()));
-                  },
-                  child: Text("About"),
-                ),
+          // Language Settings
+          ListTile(
+            title: Text(l10n.language),
+            subtitle: Text(l10n.language),
+            trailing: DropdownButton<Locale>(
+              value: languageProvider.locale,
+              items: [
+                DropdownMenuItem(value: Locale('en'), child: Text('English')),
+                DropdownMenuItem(value: Locale('hi'), child: Text('हिंदी')),
+                DropdownMenuItem(value: Locale('ta'), child: Text('தமிழ்')),
               ],
+              onChanged: (Locale? newLocale) {
+                if (newLocale != null) {
+                  languageProvider.setLocale(newLocale);
+                }
+              },
             ),
           ),
-        ),
+
+          // Notification Settings
+          SwitchListTile(
+            title: Text(l10n.notifications),
+            subtitle: Text(l10n.enableNotifications),
+            value: _notificationsEnabled,
+            onChanged: (bool value) {
+              setState(() {
+                _notificationsEnabled = value;
+              });
+            },
+          ),
+
+          // Sound Effects Settings
+          SwitchListTile(
+            title: Text(l10n.soundEffects),
+            subtitle: Text(l10n.enableSoundEffects),
+            value: _soundEffectsEnabled,
+            onChanged: (bool value) {
+              setState(() {
+                _soundEffectsEnabled = value;
+              });
+            },
+          ),
+
+          // Police Call Settings
+          SwitchListTile(
+            title: Text(l10n.policeCallTitle),
+            subtitle: Text(l10n.policeCallDescription),
+            value: sosSettings.policeCallEnabled,
+            onChanged: (bool value) {
+              sosSettings.togglePoliceCall(value);
+            },
+          ),
+
+          // Font Size Settings
+          ListTile(
+            title: Text(l10n.fontSize),
+            subtitle: Slider(
+              value: fontSizeProvider.fontSize,
+              min: 12,
+              max: 24,
+              divisions: 12,
+              label: fontSizeProvider.fontSize.round().toString(),
+              onChanged: (double value) {
+                fontSizeProvider.setFontSize(value);
+              },
+            ),
+          ),
+
+          // Logout Button
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                minimumSize: Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () async {
+                final shouldLogout = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text(l10n.logout),
+                    content: Text(l10n.logoutConfirmation),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: Text(l10n.cancel),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: Text(l10n.logout, style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (shouldLogout == true) {
+                  await FirebaseAuth.instance.signOut();
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => LoginPage()),
+                    (route) => false,
+                  );
+                }
+              },
+              child: Text(
+                l10n.logout,
+                style: TextStyle(fontSize: 16, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

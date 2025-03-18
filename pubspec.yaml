@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.7.0
+  sdk: '>=3.0.0 <4.0.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -36,27 +36,34 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   animate_do: ^3.0.2
-  google_fonts: ^6.1.0
+  google_fonts: ^5.1.0
   flutter_glow: ^0.2.0
   rive: ^0.11.5
-  url_launcher: ^6.3.1
-  font_awesome_flutter: ^10.1.0
-  shared_preferences: ^2.5.2
-  geolocator: ^13.0.2
+  url_launcher: ^6.1.12
+  font_awesome_flutter: ^10.4.0
+  shared_preferences: ^2.2.1
+  geolocator: ^10.1.1
   permission_handler: ^11.4.0
   flutter_contacts: ^1.1.3
   intl: ^0.19.0
-  provider: ^6.1.0
-  webview_flutter: ^4.10.0
-  youtube_player_flutter: ^9.1.1
+  provider: ^6.0.5
+  webview_flutter: ^4.9.0
+  youtube_player_iframe: ^4.0.4
   youtube_explode_dart: ^2.3.9
-  flutter_map: ^8.1.1
-  latlong2: ^0.9.1
-  cloud_firestore: ^5.6.5
+  flutter_map: ^6.2.1
+  latlong2: ^0.9.0
+  cloud_firestore: ^4.17.5
+  firebase_core: ^2.32.0
+  firebase_auth: ^4.20.0
+  firebase_auth_web: ^5.8.12
+  firebase_storage: ^11.6.0
+  image_picker: ^1.0.7
+  js: ^0.6.7
   ionicons: ^0.2.2
-
-
-
+  flutter_rating_bar: ^4.0.1
+  geocoding: ^2.2.2
+  http: ^1.2.0
+  cached_network_image: ^3.3.1
 
 dev_dependencies:
   flutter_test:
@@ -67,7 +74,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^2.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -110,3 +117,16 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  generate: true
+  assets:
+    - assets/images/
+    - assets/icons/
+
+# Android configuration
+android:
+  permissions:
+    - android.permission.ACCESS_FINE_LOCATION
+    - android.permission.ACCESS_COARSE_LOCATION
+    - android.permission.CALL_PHONE
+    - android.permission.INTERNET

@@ -5,8 +5,103 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ContactsPage extends StatefulWidget {
+  static Future<void> shareLocation(Position position) async {
+    final locationUrl = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}'
+    );
+    
+    if (await canLaunchUrl(locationUrl)) {
+      await launchUrl(locationUrl);
+    }
+  }
+
+  static Future<void> sendLocation(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedContacts = [
+      prefs.getString('contact1') ?? "",
+      prefs.getString('contact2') ?? "",
+      prefs.getString('contact3') ?? ""
+    ];
+
+    Position? position = await _getCurrentLocation(context);
+    if (position == null) return;
+
+    String location = "https://maps.google.com/?q=${position.latitude},${position.longitude}";
+    String message = "🚨 Emergency! My live location is: $location";
+    String encodedMessage = Uri.encodeComponent(message);
+
+    for (String number in savedContacts) {
+      if (number.isNotEmpty) {
+        String formattedNumber = number.replaceAll(RegExp(r'\D'), '');
+        bool whatsappInstalled = await isWhatsAppInstalled();
+        if (whatsappInstalled) {
+          Uri whatsappUrl = Uri.parse("whatsapp://send?phone=$formattedNumber&text=$encodedMessage");
+          if (await canLaunchUrl(whatsappUrl)) {
+            await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Could not open WhatsApp for $number')));
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('WhatsApp is not installed')));
+        }
+
+        Uri smsUrl = Uri.parse("sms:$formattedNumber?body=$encodedMessage");
+        if (await canLaunchUrl(smsUrl)) {
+          await launchUrl(smsUrl, mode: LaunchMode.externalApplication);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not send SMS to $number')));
+        }
+      }
+    }
+  }
+
+  static Future<Position?> _getCurrentLocation(BuildContext context) async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Please enable location services')));
+      return null;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Location permission denied')));
+        return null;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'Location permissions are permanently denied, enable them in settings.')));
+      return null;
+    }
+
+    return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+  }
+
+  static Future<bool> isWhatsAppInstalled() async {
+    try {
+      bool installed = await canLaunchUrl(Uri.parse("whatsapp://send"));
+      return installed;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   @override
   _ContactsPageState createState() => _ContactsPageState();
 }
@@ -45,7 +140,7 @@ class _ContactsPageState extends State<ContactsPage> {
       _savedContacts = _controllers.map((c) => c.text).toList();
     });
     ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Contacts saved successfully')));
+        SnackBar(content: Text(AppLocalizations.of(context)!.contactsSaved)));
   }
 
   Future<void> _pickContact(int index) async {
@@ -58,104 +153,71 @@ class _ContactsPageState extends State<ContactsPage> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Contact permission denied')));
-    }
-  }
-
-  Future<Position?> _getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Please enable location services')));
-      return null;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Location permission denied')));
-        return null;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Location permissions are permanently denied, enable them in settings.')));
-      return null;
-    }
-
-    return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-  }
-
-  Future<bool> isWhatsAppInstalled() async {
-    try {
-      bool installed = await canLaunchUrl(Uri.parse("whatsapp://send"));
-      return installed;
-    } on PlatformException {
-      return false;
+          SnackBar(content: Text(AppLocalizations.of(context)!.contactPermissionDenied)));
     }
   }
 
   Future<void> _sendLocation() async {
-    Position? position = await _getCurrentLocation();
-    if (position == null) return;
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
 
-    String location =
-        "https://maps.google.com/?q=${position.latitude},${position.longitude}";
-    String message = "🚨 Emergency! My live location is: $location";
-    String encodedMessage = Uri.encodeComponent(message);
+      final locationUrl = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}',
+      );
 
-    for (String number in _savedContacts) {
-      if (number.isNotEmpty) {
-        String formattedNumber = number.replaceAll(RegExp(r'\D'), '');
-        bool whatsappInstalled = await isWhatsAppInstalled();
-        if (whatsappInstalled) {
-          Uri whatsappUrl =
-          Uri.parse("whatsapp://send?phone=$formattedNumber&text=$encodedMessage");
-          if (await canLaunchUrl(whatsappUrl)) {
-            await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Could not open WhatsApp for $number')));
+      // Send location to all saved contacts
+      for (String phoneNumber in _savedContacts) {
+        if (phoneNumber.isNotEmpty) {
+          final messageUrl = Uri.parse(
+            'https://wa.me/$phoneNumber?text=EMERGENCY! I need help! My location: $locationUrl',
+          );
+          if (await canLaunchUrl(messageUrl)) {
+            await launchUrl(messageUrl);
           }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('WhatsApp is not installed')));
         }
+      }
 
-        Uri smsUrl = Uri.parse("sms:$formattedNumber?body=$encodedMessage");
-        if (await canLaunchUrl(smsUrl)) {
-          await launchUrl(smsUrl, mode: LaunchMode.externalApplication);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not send SMS to $number')));
-        }
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.contactsSaved),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.locationError),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
       appBar: AppBar(
-        title: Text('Emergency Contacts'),
-        backgroundColor: Colors.redAccent, // Light theme with red accent
+        title: Text(localizations.emergencyContacts),
+        backgroundColor: isDark ? Colors.pinkAccent : Colors.redAccent,
         elevation: 0,
       ),
-      backgroundColor: Colors.grey[200], // Light background
+      backgroundColor: isDark ? Color(0xFF121212) : Colors.grey[200],
       body: Padding(
         padding: EdgeInsets.all(16.0),
         child: Column(
           children: [
             Card(
-              color: Colors.white,
+              color: isDark ? Color(0xFF1E1E1E) : Colors.white,
               elevation: 4,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
@@ -172,16 +234,35 @@ class _ContactsPageState extends State<ContactsPage> {
                               child: TextField(
                                 controller: _controllers[i],
                                 keyboardType: TextInputType.phone,
+                                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                                 decoration: InputDecoration(
-                                  labelText: 'Contact ${i + 1}',
-                                  border: OutlineInputBorder(),
+                                  labelText: '${localizations.contact} ${i + 1}',
+                                  labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                   filled: true,
-                                  fillColor: Colors.grey[100],
+                                  fillColor: isDark 
+                                      ? Colors.white.withOpacity(0.1)
+                                      : Colors.grey[100],
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: isDark ? Colors.white24 : Colors.grey[300]!,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: isDark ? Colors.pinkAccent : Colors.redAccent,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                             IconButton(
-                              icon: Icon(Icons.contacts, color: Colors.blue),
+                              icon: Icon(Icons.contacts, 
+                                color: isDark ? Colors.pinkAccent : Colors.blue),
                               onPressed: () => _pickContact(i),
                             ),
                           ],
@@ -193,24 +274,48 @@ class _ContactsPageState extends State<ContactsPage> {
             ),
             SizedBox(height: 20),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                ElevatedButton(
-                  onPressed: _saveContacts,
-                  child: Text("Save Contacts"),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: Colors.blue,
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _saveContacts,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? Colors.pinkAccent.withOpacity(0.8) : Colors.pinkAccent,
+                      padding: EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      localizations.saveContacts,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
-                ElevatedButton(
-                  onPressed: _sendLocation,
-                  child: Text("Send Location"),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: Colors.red,
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _sendLocation,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? Colors.pinkAccent.withOpacity(0.8) : Colors.pinkAccent,
+                      padding: EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      localizations.sendLocation,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ],
