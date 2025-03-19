@@ -19,45 +19,88 @@ class ContactsPage extends StatefulWidget {
   }
 
   static Future<void> sendLocation(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedContacts = [
-      prefs.getString('contact1') ?? "",
-      prefs.getString('contact2') ?? "",
-      prefs.getString('contact3') ?? ""
-    ];
+    try {
+      // Get contacts immediately
+      final prefs = await SharedPreferences.getInstance();
+      final savedContacts = [
+        prefs.getString('contact1') ?? "",
+        prefs.getString('contact2') ?? "",
+        prefs.getString('contact3') ?? ""
+      ].where((number) => number.isNotEmpty).toList();
 
-    Position? position = await _getCurrentLocation(context);
-    if (position == null) return;
-
-    String location = "https://maps.google.com/?q=${position.latitude},${position.longitude}";
-    String message = "🚨 Emergency! My live location is: $location";
-    String encodedMessage = Uri.encodeComponent(message);
-
-    for (String number in savedContacts) {
-      if (number.isNotEmpty) {
-        String formattedNumber = number.replaceAll(RegExp(r'\D'), '');
-        bool whatsappInstalled = await isWhatsAppInstalled();
-        if (whatsappInstalled) {
-          Uri whatsappUrl = Uri.parse("whatsapp://send?phone=$formattedNumber&text=$encodedMessage");
-          if (await canLaunchUrl(whatsappUrl)) {
-            await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Could not open WhatsApp for $number')));
-          }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('WhatsApp is not installed')));
-        }
-
-        Uri smsUrl = Uri.parse("sms:$formattedNumber?body=$encodedMessage");
-        if (await canLaunchUrl(smsUrl)) {
-          await launchUrl(smsUrl, mode: LaunchMode.externalApplication);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not send SMS to $number')));
+      // Get location with reduced accuracy and timeout
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.reduced,
+          timeLimit: Duration(seconds: 2),
+        );
+      } catch (e) {
+        // If location fails, try with lowest accuracy
+        try {
+          position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.lowest,
+            timeLimit: Duration(seconds: 2),
+          );
+        } catch (e) {
+          // If still fails, use last known location
+          position = await Geolocator.getLastKnownPosition();
         }
       }
+
+      if (position == null) {
+        throw Exception('Could not get location');
+      }
+
+      // Create location URL and message
+      String location = "https://maps.google.com/?q=${position.latitude},${position.longitude}";
+      String message = "🚨 EMERGENCY SOS! I need immediate help! My location: $location";
+      String encodedMessage = Uri.encodeComponent(message);
+
+      // Create futures for all message sending operations
+      List<Future<void>> messageFutures = [];
+
+      // Process all contacts simultaneously
+      for (String number in savedContacts) {
+        String formattedNumber = number.replaceAll(RegExp(r'\D'), '');
+        
+        // Try WhatsApp first
+        messageFutures.add(
+          isWhatsAppInstalled().then((whatsappInstalled) async {
+            if (whatsappInstalled) {
+              Uri whatsappUrl = Uri.parse("whatsapp://send?phone=$formattedNumber&text=$encodedMessage");
+              if (await canLaunchUrl(whatsappUrl)) {
+                await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+              }
+            }
+          }),
+        );
+
+        // Try SMS as backup
+        messageFutures.add(
+          launchUrl(
+            Uri.parse("sms:$formattedNumber?body=$encodedMessage"),
+            mode: LaunchMode.externalApplication,
+          ),
+        );
+      }
+
+      // Wait for all messages to be sent with a timeout
+      await Future.wait(
+        messageFutures,
+        eagerError: false,
+      ).timeout(
+        Duration(seconds: 5),
+        onTimeout: () {
+          // Even if some messages fail, we don't want to block the SOS process
+          return <void>[];
+        },
+      );
+
+    } catch (e) {
+      // In emergency situations, we don't want to show errors to the user
+      // Just continue with the SOS process
+      print('Error in sendLocation: $e');
     }
   }
 

@@ -20,10 +20,10 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final languageProvider = Provider.of<LanguageProvider>(context);
-    final sosSettings = Provider.of<SOSSettingsProvider>(context);
-    final fontSizeProvider = Provider.of<FontSizeProvider>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
+    final sosSettings = Provider.of<SOSSettingsProvider>(context, listen: false);
+    final fontSizeProvider = Provider.of<FontSizeProvider>(context, listen: false);
 
     return Scaffold(
       appBar: AppBar(
@@ -33,31 +33,37 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: EdgeInsets.all(16),
         children: [
           // Theme Settings
-          SwitchListTile(
-            title: Text(l10n.darkMode),
-            subtitle: Text(l10n.toggleTheme),
-            value: themeProvider.themeMode == ThemeMode.dark,
-            onChanged: (bool value) {
-              themeProvider.toggleTheme();
-            },
+          StatefulBuilder(
+            builder: (context, setState) => SwitchListTile(
+              title: Text(l10n.darkMode),
+              subtitle: Text(l10n.toggleTheme),
+              value: themeProvider.themeMode == ThemeMode.dark,
+              onChanged: (bool value) {
+                themeProvider.toggleTheme();
+                setState(() {});
+              },
+            ),
           ),
 
           // Language Settings
-          ListTile(
-            title: Text(l10n.language),
-            subtitle: Text(l10n.language),
-            trailing: DropdownButton<Locale>(
-              value: languageProvider.locale,
-              items: [
-                DropdownMenuItem(value: Locale('en'), child: Text('English')),
-                DropdownMenuItem(value: Locale('hi'), child: Text('हिंदी')),
-                DropdownMenuItem(value: Locale('ta'), child: Text('தமிழ்')),
-              ],
-              onChanged: (Locale? newLocale) {
-                if (newLocale != null) {
-                  languageProvider.setLocale(newLocale);
-                }
-              },
+          StatefulBuilder(
+            builder: (context, setState) => ListTile(
+              title: Text(l10n.language),
+              subtitle: Text(l10n.language),
+              trailing: DropdownButton<Locale>(
+                value: languageProvider.locale,
+                items: [
+                  DropdownMenuItem(value: Locale('en'), child: Text('English')),
+                  DropdownMenuItem(value: Locale('hi'), child: Text('हिंदी')),
+                  DropdownMenuItem(value: Locale('ta'), child: Text('தமிழ்')),
+                ],
+                onChanged: (Locale? newLocale) {
+                  if (newLocale != null) {
+                    languageProvider.setLocale(newLocale);
+                    setState(() {});
+                  }
+                },
+              ),
             ),
           ),
 
@@ -86,27 +92,37 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
 
           // Police Call Settings
-          SwitchListTile(
-            title: Text(l10n.policeCallTitle),
-            subtitle: Text(l10n.policeCallDescription),
-            value: sosSettings.policeCallEnabled,
-            onChanged: (bool value) {
-              sosSettings.togglePoliceCall(value);
-            },
+          StatefulBuilder(
+            builder: (context, setState) => SwitchListTile(
+              title: Text(l10n.policeCallTitle),
+              subtitle: Text(l10n.policeCallDescription),
+              value: sosSettings.policeCallEnabled,
+              onChanged: (bool value) {
+                sosSettings.togglePoliceCall(value);
+                setState(() {});
+              },
+            ),
           ),
 
           // Font Size Settings
-          ListTile(
-            title: Text(l10n.fontSize),
-            subtitle: Slider(
-              value: fontSizeProvider.fontSize,
-              min: 12,
-              max: 24,
-              divisions: 12,
-              label: fontSizeProvider.fontSize.round().toString(),
-              onChanged: (double value) {
-                fontSizeProvider.setFontSize(value);
-              },
+          StatefulBuilder(
+            builder: (context, setState) => ListTile(
+              title: Text(l10n.fontSize),
+              subtitle: Slider(
+                value: fontSizeProvider.fontSize,
+                min: 12,
+                max: 24,
+                divisions: 12,
+                label: fontSizeProvider.fontSize.toStringAsFixed(1),
+                onChanged: (double value) {
+                  fontSizeProvider.setFontSize(value);
+                  setState(() {});
+                },
+              ),
+              trailing: Text(
+                '${fontSizeProvider.fontSize.toStringAsFixed(1)}',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ),
 

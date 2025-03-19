@@ -25,50 +25,71 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:geolocator/geolocator.dart';
 import 'sos_settings_provider.dart';
 import 'font_size_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'services/auth_service.dart';
+import 'login_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
+    print('Initializing Firebase...');
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    print('Firebase initialized successfully');
     
-    // Add auth state listener
-    FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      if (user == null) {
-        print('User is currently signed out!');
-      } else {
-        print('User is signed in!');
-        print('User ID: ${user.uid}');
-        print('User Email: ${user.email}');
-      }
-    });
-  } catch (e) {
-    if (e.toString().contains('duplicate-app')) {
-      // Firebase already initialized, continue
-    } else {
-      // Rethrow if it's a different error
-      rethrow;
-    }
+    final prefs = await SharedPreferences.getInstance();
+    print('SharedPreferences initialized');
+    
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => ThemeProvider()),
+          ChangeNotifierProvider(create: (_) => LanguageProvider()),
+          ChangeNotifierProvider(create: (_) => SOSSettingsProvider()),
+          ChangeNotifierProvider(create: (_) => FontSizeProvider()),
+          Provider<AuthService>(create: (_) => AuthService(prefs)),
+        ],
+        child: MyApp(),
+      ),
+    );
+  } catch (e, stackTrace) {
+    print('Error initializing Firebase: $e');
+    print('Stack trace: $stackTrace');
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, color: Colors.red, size: 48),
+                SizedBox(height: 16),
+                Text(
+                  'Error initializing app. Please try again later.',
+                  style: TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Error details: $e',
+                  style: TextStyle(color: Colors.red, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => LanguageProvider()),
-        ChangeNotifierProvider(create: (_) => SOSSettingsProvider()),
-        ChangeNotifierProvider(create: (_) => FontSizeProvider()),
-      ],
-      child: SOSApp(),
-    ),
-  );
 }
 
-class SOSApp extends StatelessWidget {
+class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Consumer3<ThemeProvider, LanguageProvider, FontSizeProvider>(
-      builder: (context, themeProvider, languageProvider, fontSizeProvider, child) {
+    return Consumer4<ThemeProvider, LanguageProvider, FontSizeProvider, AuthService>(
+      builder: (context, themeProvider, languageProvider, fontSizeProvider, authService, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Women Safety App',
@@ -165,13 +186,68 @@ class SOSApp extends StatelessWidget {
             ),
           ),
           themeMode: themeProvider.themeMode,
-          home: LoginPage(),
-          routes: {
-            '/login': (context) => LoginPage(),
-            '/signup': (context) => SignUpPage(),
-            '/forgot_password': (context) => ForgotPasswordPage(),
-          },
+          home: AuthWrapper(),
         );
+      },
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    return FutureBuilder<bool>(
+      future: authService.isLoggedIn(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 20),
+                  Text(
+                    'Loading...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red, size: 48),
+                  SizedBox(height: 20),
+                  Text(
+                    'Error loading app. Please try again.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.data == true) {
+          return BottomNavBar();
+        }
+
+        return LoginPage();
       },
     );
   }
@@ -268,9 +344,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       });
 
       try {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
+        final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: usernameController.text.trim(),
           password: passwordController.text.trim(),
+        );
+
+        // Save login credentials for auto-login
+        final authService = Provider.of<AuthService>(context, listen: false);
+        await authService.saveLoginCredentials(
+          usernameController.text.trim(),
+          passwordController.text.trim(),
         );
 
         Navigator.pushReplacement(
@@ -377,6 +460,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Image.asset(
+                        'assets/icons/WSA_logo.png',
+                        width: 150,
+                        height: 150,
+                      ),
+                      SizedBox(height: 20),
                       Text(
                         l10n.welcomeMessage,
                         style: TextStyle(
@@ -504,54 +593,87 @@ class LandingPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final sosSettings = Provider.of<SOSSettingsProvider>(context, listen: false);
     
-    // Show confirmation dialog
+    // Show confirmation dialog with a timeout
     final bool? shouldProceed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.sosAlertTitle, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
-        content: Text(l10n.sosAlertMessage, 
-          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l10n.cancel),
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        // Auto-proceed after 3 seconds
+        Future.delayed(Duration(seconds: 3), () {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context, true);
+          }
+        });
+        
+        return WillPopScope(
+          onWillPop: () async => false, // Prevent back button
+          child: AlertDialog(
+            title: Text(
+              '🚨 EMERGENCY SOS',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+            content: Text(
+              'Sending emergency alerts to your contacts and emergency services...',
+              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('Proceed', style: TextStyle(color: Colors.red)),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(l10n.proceed, style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     if (shouldProceed == true) {
       try {
+        // Start all emergency actions simultaneously
+        List<Future<void>> emergencyActions = [];
+
         // Share location with emergency contacts
-        await ContactsPage.sendLocation(context);
+        emergencyActions.add(ContactsPage.sendLocation(context));
 
         // Call police if enabled
         if (sosSettings.policeCallEnabled) {
-          final url = Uri.parse('tel:100');
-          if (await canLaunchUrl(url)) {
-            await launchUrl(url);
-          }
+          emergencyActions.add(
+            launchUrl(
+              Uri.parse('tel:100'),
+              mode: LaunchMode.externalApplication,
+            ),
+          );
         }
 
+        // Wait for all actions to complete with a timeout
+        await Future.wait(
+          emergencyActions,
+          eagerError: false,
+        ).timeout(
+          Duration(seconds: 10),
+          onTimeout: () {
+            // Even if some actions fail, we don't want to block the SOS process
+            return <void>[];
+          },
+        );
+
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.sosSuccess),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Emergency alerts sent successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       } catch (e) {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: Unable to send SOS. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        // In emergency situations, we don't want to show errors to the user
+        // Just continue with the SOS process
+        print('Error in _handleSOS: $e');
       }
     }
   }
@@ -561,70 +683,80 @@ class LandingPage extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
     
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Background Gradient
-          Container(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                colors: isDark 
-                    ? [Colors.pinkAccent.withOpacity(0.2), Colors.deepPurple.withOpacity(0.4)]
-                    : [Colors.pinkAccent.withOpacity(0.3), Colors.deepPurple.withOpacity(0.8)],
-                center: Alignment.center,
-                radius: 1.2,
+    return SafeArea(
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              colors: isDark 
+                  ? [Colors.pinkAccent.withOpacity(0.2), Colors.deepPurple.withOpacity(0.4)]
+                  : [Colors.pinkAccent.withOpacity(0.3), Colors.deepPurple.withOpacity(0.8)],
+              center: Alignment.center,
+              radius: 1.2,
+            ),
+          ),
+          child: Center(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // First Row of Buttons
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 20,
+                      runSpacing: 20,
+                      children: [
+                        _buildGridButton(Icons.map, l10n.mapAndReviews, () {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => MapScreen()));
+                        }),
+                        _buildGridButton(Icons.shield, l10n.selfDefense, () {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => SelfDefenseVideos()));
+                        }),
+                      ],
+                    ),
+
+                    // SOS Emergency Button
+                    SizedBox(height: 30),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: FloatingActionButton.extended(
+                        onPressed: () => _handleSOS(context),
+                        icon: Icon(Icons.warning, color: Colors.white),
+                        label: Text(l10n.sosEmergency, style: TextStyle(fontSize: 18, color: Colors.white)),
+                        backgroundColor: Colors.red,
+                        elevation: 8,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 30),
+
+                    // Second Row of Buttons
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 20,
+                      runSpacing: 20,
+                      children: [
+                        _buildGridButton(Icons.article, l10n.newsAndArticles, () {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => NewsPage()));
+                        }),
+                        _buildGridButton(Icons.gavel, l10n.welfareLaws, () {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => LawsPage()));
+                        }),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-
-          // Main Content
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // First Row of Buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildGridButton(Icons.map, l10n.mapAndReviews, () {Navigator.push(context, MaterialPageRoute(builder: (context) => MapScreen()));}),
-                    SizedBox(width: 20),
-                    _buildGridButton(Icons.shield, l10n.selfDefense, () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => SelfDefenseVideos()));
-                    }),
-                  ],
-                ),
-
-                // SOS Emergency Button (Centered between rows)
-                SizedBox(height: 20),
-                FloatingActionButton.extended(
-                  onPressed: () => _handleSOS(context),
-                  icon: Icon(Icons.warning, color: Colors.white),
-                  label: Text(l10n.sosEmergency, style: TextStyle(fontSize: 18, color: Colors.white)),
-                  backgroundColor: Colors.red,
-                  elevation: 8,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                SizedBox(height: 20),
-
-                // Second Row of Buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildGridButton(Icons.article, l10n.newsAndArticles, () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => NewsPage()));
-                    }),
-                    SizedBox(width: 20),
-                    _buildGridButton(Icons.gavel, l10n.welfareLaws, () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => LawsPage()));
-                    }),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -643,7 +775,8 @@ class LandingPage extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             onTap: onPressed,
             child: Container(
-              width: 150, // Fixed width for consistency
+              width: 150,
+              height: 150,
               padding: EdgeInsets.all(16),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -669,11 +802,11 @@ class LandingPage extends StatelessWidget {
                     text,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 14, // Slightly smaller font size
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.pinkAccent.withOpacity(0.8) : Colors.pinkAccent,
                     ),
-                    maxLines: 2, // Allow up to 2 lines
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],

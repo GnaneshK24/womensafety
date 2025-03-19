@@ -13,6 +13,12 @@ import 'dart:convert';
 import 'dart:math' show Point, sqrt, sin, cos, atan2, pi;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'location_review_page.dart';
+import 'package:provider/provider.dart';
+import 'login_page.dart';
+import 'services/auth_service.dart';
+import 'all_reviews_page.dart';
+import 'services/location_service.dart';
+import 'dart:async';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -23,6 +29,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   late final MapController _mapController;
+  late final LocationService _locationService;
   LatLng? currentLocation;
   bool _isLoading = false;
   List<DocumentSnapshot> _reviews = [];
@@ -40,89 +47,106 @@ class _MapScreenState extends State<MapScreen> {
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
   List<LatLng> _routeCoordinates = [];
+  StreamSubscription<Position>? _positionStreamSubscription;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
-    _getCurrentLocation();
+    _locationService = LocationService();
+    _initializeLocation();
     _loadReviews();
+  }
+
+  Future<void> _initializeLocation() async {
+    await _locationService.initialize();
+    _getCurrentLocation();
+    _startLocationUpdates();
+  }
+
+  void _startLocationUpdates() {
+    _positionStreamSubscription?.cancel();
+    _positionStreamSubscription = _locationService
+        .getPositionStream(
+          desiredAccuracy: LocationAccuracy.high,
+          intervalInSeconds: 10,
+        )
+        .listen(
+          (position) {
+            setState(() {
+              currentLocation = LatLng(position.latitude, position.longitude);
+            });
+          },
+          onError: (e) {
+            print('Error in location stream: $e');
+          },
+        );
   }
 
   @override
   void dispose() {
+    _positionStreamSubscription?.cancel();
     _searchController.dispose();
     _mapController.dispose();
     super.dispose();
   }
 
   Future<void> _getCurrentLocation() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Check location permission first
-      LocationPermission permission = await Geolocator.checkPermission();
-      
-      if (permission == LocationPermission.denied) {
-        // Request permission if denied
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
+      final position = await _locationService.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeout: Duration(seconds: 5),
+        useLastKnownLocation: true,
+      );
+
+      if (position != null) {
+        setState(() {
+          currentLocation = LatLng(position.latitude, position.longitude);
+          if (_mapController.camera.zoom < 15.0) {
+            _mapController.move(currentLocation!, 15.0);
+          } else {
+            _mapController.move(currentLocation!, _mapController.camera.zoom);
+          }
+        });
+      } else {
+        // Try to get last known position as fallback
+        final lastPosition = await _locationService.getLastKnownPosition();
+        if (lastPosition != null) {
+          setState(() {
+            currentLocation = LatLng(lastPosition.latitude, lastPosition.longitude);
+            _mapController.move(currentLocation!, 15.0);
+          });
+        } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Location permission is required to show your current location'),
-              backgroundColor: Colors.red,
+              content: Text('Could not get your location. Please check your settings.'),
+              backgroundColor: Colors.orange,
             ),
           );
-          return;
         }
       }
-
-      if (permission == LocationPermission.deniedForever) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Location permission is permanently denied. Please enable it in settings.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Check if location services are enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Location services are disabled. Please enable them in settings.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Get current position with high accuracy
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 5),
-      );
-
-      setState(() {
-        currentLocation = LatLng(position.latitude, position.longitude);
-        _mapController.move(currentLocation!, 15.0);
-      });
     } catch (e) {
       print('Error getting location: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to get current location. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error getting location. Using last known location if available.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -747,88 +771,6 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                   ],
                 ),
-                Positioned(
-                  top: 16,
-                  left: 16,
-                  right: 16,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.grey[900] : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search destination...',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                      onChanged: (value) {
-                        if (value.isNotEmpty) {
-                          _searchLocation(value);
-                        } else {
-                          setState(() {
-                            _searchResults = [];
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                ),
-                if (_searchResults.isNotEmpty)
-                  Positioned(
-                    top: 80,
-                    left: 16,
-                    right: 16,
-                    child: Container(
-                      constraints: BoxConstraints(maxHeight: 200),
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.grey[900] : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _searchResults.length,
-                        itemBuilder: (context, index) {
-                          final result = _searchResults[index];
-                          return ListTile(
-                            title: Text(result['display_name']),
-                            subtitle: Text(result['type']),
-                            onTap: () {
-                              setState(() {
-                                destinationLocation = LatLng(
-                                  double.parse(result['lat']),
-                                  double.parse(result['lon']),
-                                );
-                                _showRoute = true;
-                                _searchResults = [];
-                                _searchController.clear();
-                              });
-                              _getRoute();
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ),
               ],
             ),
       floatingActionButton: Column(

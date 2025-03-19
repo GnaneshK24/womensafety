@@ -22,16 +22,16 @@ class DefaultFirebaseOptions {
   // 2. Under "Your apps", find your web app
   // 3. Copy the values from the firebaseConfig object
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyC3UJ31w4QTWa53-VLypgedaa0TZMroRMg',
-    appId: '1:427334871623:android:5f949e35c6e76976199f62',
+    apiKey: 'AIzaSyC0tDIN9tkkHm0enco_3IR8GpOxbyhX4yc',
+    appId: '1:427334871623:android:144ce099ff547d15199f62',
     messagingSenderId: '427334871623',
     projectId: 'women-safety-4269b',
-    storageBucket: 'women-safety-4269b.appspot.com',
+    storageBucket: 'women-safety-4269b.firebasestorage.app',
   );
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyC3UJ31w4QTWa53-VLypgedaa0TZMroRMg',
-    appId: '1:427334871623:web:5f949e35c6e76976199f62',
+    apiKey: 'AIzaSyC0tDIN9tkkHm0enco_3IR8GpOxbyhX4yc',
+    appId: '1:427334871623:android:144ce099ff547d15199f62',
     messagingSenderId: '427334871623',
     projectId: 'women-safety-4269b',
     authDomain: 'women-safety-4269b.firebaseapp.com',
