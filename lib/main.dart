@@ -28,6 +28,7 @@ import 'font_size_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/auth_service.dart';
 import 'login_page.dart';
+import 'package:just_audio/just_audio.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -434,6 +435,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
+          // Background gradient
           AnimatedBuilder(
             animation: _backgroundController,
             builder: (context, child) {
@@ -450,90 +452,103 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               );
             },
           ),
-          Center(
-            child: FadeInUp(
-              duration: Duration(seconds: 1),
-              child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Image.asset(
-                        'assets/icons/WSA_logo.png',
-                        width: 150,
-                        height: 150,
-                      ),
-                      SizedBox(height: 20),
-                      Text(
-                        l10n.welcomeMessage,
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.white,
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        l10n.safetyMessage,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: isDark ? Colors.white70 : Colors.white70,
-                        ),
-                      ),
-                      SizedBox(height: 30),
-                      _buildTextField(usernameController, l10n.email),
-                      SizedBox(height: 15),
-                      _buildTextField(passwordController, l10n.password, obscureText: true),
-                      SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => ForgotPasswordPage()),
-                            );
-                          },
-                          child: Text(
-                            l10n.forgotPassword,
-                            style: TextStyle(color: isDark ? Colors.white70 : Colors.white70),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 20),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pinkAccent,
-                          padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                        ),
-                        onPressed: _isLoading ? null : login,
-                        child: _isLoading
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          // Content with scroll
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: AlwaysScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top,
+                ),
+                child: Center(
+                  child: FadeInUp(
+                    duration: Duration(seconds: 1),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(height: 20),
+                            Image.asset(
+                              'assets/icons/WSA_logo.png',
+                              width: 120,
+                              height: 120,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              l10n.welcomeMessage,
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.white,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              l10n.safetyMessage,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: isDark ? Colors.white70 : Colors.white70,
+                              ),
+                            ),
+                            SizedBox(height: 24),
+                            _buildTextField(usernameController, l10n.email),
+                            SizedBox(height: 15),
+                            _buildTextField(passwordController, l10n.password, obscureText: true),
+                            SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => ForgotPasswordPage()),
+                                  );
+                                },
+                                child: Text(
+                                  l10n.forgotPassword,
+                                  style: TextStyle(color: isDark ? Colors.white70 : Colors.white70),
                                 ),
-                              )
-                            : Text(l10n.login, style: TextStyle(fontSize: 18, color: Colors.white)),
-                      ),
-                      SizedBox(height: 20),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => SignUpPage()),
-                          );
-                        },
-                        child: Text(
-                          l10n.signUp,
-                          style: TextStyle(color: isDark ? Colors.white : Colors.white),
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.pinkAccent,
+                                padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                              ),
+                              onPressed: _isLoading ? null : login,
+                              child: _isLoading
+                                  ? SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    )
+                                  : Text(l10n.login, style: TextStyle(fontSize: 18, color: Colors.white)),
+                            ),
+                            SizedBox(height: 16),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => SignUpPage()),
+                                );
+                              },
+                              child: Text(
+                                l10n.signUp,
+                                style: TextStyle(color: isDark ? Colors.white : Colors.white),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -593,6 +608,9 @@ class LandingPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final sosSettings = Provider.of<SOSSettingsProvider>(context, listen: false);
     
+    // Initialize audio player
+    final player = AudioPlayer();
+    
     // Show confirmation dialog with a timeout
     final bool? shouldProceed = await showDialog<bool>(
       context: context,
@@ -618,7 +636,10 @@ class LandingPage extends StatelessWidget {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () {
+                  player.stop(); // Stop siren if user cancels
+                  Navigator.pop(context, false);
+                },
                 child: Text('Cancel'),
               ),
               TextButton(
@@ -633,6 +654,11 @@ class LandingPage extends StatelessWidget {
 
     if (shouldProceed == true) {
       try {
+        // Start playing siren sound
+        await player.setSource(AssetSource('assets/sounds/siren.mp3'));
+        await player.setVolume(1.0);
+        await player.resume();
+        
         // Start all emergency actions simultaneously
         List<Future<void>> emergencyActions = [];
 
@@ -660,6 +686,11 @@ class LandingPage extends StatelessWidget {
             return <void>[];
           },
         );
+
+        // Stop siren sound after 30 seconds
+        Future.delayed(Duration(seconds: 30), () {
+          player.stop();
+        });
 
         // Show success message
         if (context.mounted) {

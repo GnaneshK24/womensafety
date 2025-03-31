@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'services/sentiment_service.dart';
 
 class AllReviewsPage extends StatefulWidget {
   const AllReviewsPage({super.key});
@@ -14,7 +15,7 @@ class AllReviewsPage extends StatefulWidget {
 class _AllReviewsPageState extends State<AllReviewsPage> {
   final _firestore = FirebaseFirestore.instance;
   bool _isLoading = true;
-  List<DocumentSnapshot> _reviews = [];
+  List<Map<String, dynamic>> _reviews = [];
 
   @override
   void initState() {
@@ -29,8 +30,25 @@ class _AllReviewsPageState extends State<AllReviewsPage> {
           .orderBy('timestamp', descending: true)
           .get();
 
+      List<Map<String, dynamic>> reviewsWithSentiment = [];
+
+      for (var doc in reviewsSnapshot.docs) {
+        final data = doc.data();
+        final sentiment = await SentimentService.analyzeSentiment(data['review']);
+        reviewsWithSentiment.add({
+          'doc': doc,
+          'sentiment': sentiment,
+        });
+      }
+
+      // Sorting reviews: Positive first, then Neutral, then Negative
+      reviewsWithSentiment.sort((a, b) {
+        const sentimentOrder = {'positive': 0, 'neutral': 1, 'negative': 2};
+        return sentimentOrder[a['sentiment']]!.compareTo(sentimentOrder[b['sentiment']]!);
+      });
+
       setState(() {
-        _reviews = reviewsSnapshot.docs;
+        _reviews = reviewsWithSentiment;
         _isLoading = false;
       });
     } catch (e) {
@@ -73,8 +91,10 @@ class _AllReviewsPageState extends State<AllReviewsPage> {
                   padding: EdgeInsets.all(16),
                   itemCount: _reviews.length,
                   itemBuilder: (context, index) {
-                    final review = _reviews[index];
+                    final review = _reviews[index]['doc'];
+                    final sentiment = _reviews[index]['sentiment'];
                     final data = review.data() as Map<String, dynamic>;
+
                     return Card(
                       margin: EdgeInsets.only(bottom: 16),
                       child: Padding(
@@ -124,6 +144,18 @@ class _AllReviewsPageState extends State<AllReviewsPage> {
                             ),
                             SizedBox(height: 8),
                             Text(data['review'] ?? ''),
+                            SizedBox(height: 8),
+                            Text(
+                              'Sentiment: ${sentiment.toUpperCase()}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: sentiment == 'positive'
+                                    ? Colors.green
+                                    : sentiment == 'negative'
+                                        ? Colors.red
+                                        : Colors.orange,
+                              ),
+                            ),
                             if (data['latitude'] != null && data['longitude'] != null) ...[
                               SizedBox(height: 8),
                               Text(
@@ -159,4 +191,4 @@ class _AllReviewsPageState extends State<AllReviewsPage> {
       return 'Just now';
     }
   }
-} 
+}
